@@ -8,4 +8,5 @@ it updates after each game so that you can see your latest headshot percentage, 
 
 It's able to track any other player's stats too, the default is just set to my username until you change it.
 
-thats all, next step is to convert it to a gui-based output, then hopefully a full-fledged mod.
+It runs through your terminal/console so make sure you have at least java 8 and google chrome.
+
