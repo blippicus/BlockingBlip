@@ -1,6 +1,4 @@
-# BlockingBlip
-blippy's blockingdead stat tracker
-
+# blippy's blockingdead stat tracker
 ok so this is my first time using github sorry if anything is super jank
 
 this is a java program I wrote to help me track my stats in a game called blocking dead. 
