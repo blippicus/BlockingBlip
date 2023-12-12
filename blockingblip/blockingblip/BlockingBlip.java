@@ -1,7 +1,10 @@
 package blockingblip;
 
 import java.util.Scanner;
+
 import java.io.*;
+
+import org.apache.commons.io.output.NullOutputStream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -17,6 +20,7 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.Select;
+import io.github.bonigarcia.wdm.WebDriverManager;
 
 public class BlockingBlip {
 	static HashMap<String, Player> lb;
@@ -25,6 +29,7 @@ public class BlockingBlip {
 	static DecimalFormat df;
 	static String defaultIGN;
 	static String tempIGN;
+	static boolean colorSettings;
 //classes
 	public static class Player {
 		String ign;
@@ -48,12 +53,13 @@ public class BlockingBlip {
 		reset("\u001B[0m"),
 		defhex("\u001B[38;2;191;175;221m"),
 		ignhex("\u001B[38;2;171;196;194m"),
-		wordshex("\u001B[38;2;188;188;188m"),
+		wordshex("\u001B[38;2;150;150;150m"),
 		poshs("\u001B[38;2;143;206;0m"),
 		neghs("\u001B[38;2;224;102;102m"),
 		bold("\u001B[1m"),
 		highlight("\u001B[93;1m"),
-		underline("\033[4m");
+		underline("\033[4m"),
+		top10("\033[38;5;220m");
 
 	    private String code;
 
@@ -62,7 +68,8 @@ public class BlockingBlip {
 	    }
 
 	    public String getCode() {
-	    	return code;
+	    	if (colorSettings) return code;
+	    	else return "";
 	    }
 	}
 //main
@@ -80,9 +87,10 @@ public class BlockingBlip {
 			String input = reader.nextLine().trim();
 			
 			if (input == "") extractStats(defaultIGN);
-			else if (input.equals("v")) mainOptions();
-			else if (input.equals("d") || input.equals("D")) setDefault();		
-			else if (input.equals("l") || input.equals("L")) {
+			else if (input.toLowerCase().equals("v")) mainOptions();
+			else if (input.toLowerCase().equals("d")) setDefault();		
+			else if (input.toLowerCase().equals("s")) setColor();
+			else if (input.toLowerCase().equals("l")) {
 				lbOptions();
 				leaderboard();
 			}
@@ -99,7 +107,7 @@ public class BlockingBlip {
 			defaultIGN = doc.substring(0, doc.indexOf("'"));
 
 			FileWriter writer = new FileWriter("BBsettings.txt", false);
-			writer.write(defaultIGN);
+			writer.write(defaultIGN + " " + colorSettings);
 			writer.close();
 	        
 	        System.out.printf("%sdefault changed!\n\n%s", Color.wordshex.getCode(), Color.reset.getCode());
@@ -107,6 +115,30 @@ public class BlockingBlip {
 		catch (IOException e) { System.out.printf("%sInvalid username!\n\n%s", Color.wordshex.getCode(), Color.reset.getCode()); }
 	}
 
+	public static void setColor() throws IOException {
+		if (colorSettings) {
+			colorSettings = false;
+			System.out.printf("%s\nColors disabled!\n\n", Color.reset.getCode());
+		}
+		else {
+			System.out.printf("%s\n[WARNING] Not all terminals support colored text!\n\033[38;5;220m    Does this text appear gold?    \u001B[0m\n[y]es, [n]o\n", Color.reset.getCode());
+			String input = reader.nextLine().trim();
+			if (input.toLowerCase().equals("y")) {
+				colorSettings = true;
+				System.out.printf("%s\nColors enabled!\n\n", Color.reset.getCode());
+			}
+			else {
+				System.out.printf("\nColors settings were not changed.\n\n");
+				return;
+			}
+		}	
+		FileWriter writer = new FileWriter("BBsettings.txt", false);
+		int i = 0;
+		if (colorSettings) i = 1;
+		writer.write(defaultIGN + " " + i);
+		writer.close();
+	}	
+	
  	public static void extractStats(String ign) throws IOException, InterruptedException {
         try {
 	        String doc = Jsoup.connect("https://plancke.io/hypixel/player/stats/"+ign+"#Arcade").get().text();
@@ -116,7 +148,9 @@ public class BlockingBlip {
 	        int hs = Integer.parseInt(extractInt(doc, "Headshots Blocking Dead: "));
 	        int w = Integer.parseInt(extractInt(doc, "Wins Blocking Dead: "));
 	        double ohs = (double)hs*100/k;
-	        int kw = k/w;
+	        int kw;
+	        if (w == 0) kw = k;
+	        else kw = k/w;
 	        
 	        if (ign.toLowerCase().equals(defaultIGN.toLowerCase())) {
 	        	System.out.printf("\n%s%s%s%s \n", Color.bold.getCode(), Color.defhex.getCode(), ignSens, Color.reset.getCode());
@@ -131,19 +165,29 @@ public class BlockingBlip {
 	        	rank.add(p);
 	        	
 	        	sortLB("k");
-	        	System.out.printf("%sKills: %s%s%s %s[#%d]%s\n", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(k), Color.reset.getCode(), rank.indexOf(p)+1, Color.reset.getCode());
+	        	System.out.printf("%sKills: %s%s%s%s ", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(k), Color.reset.getCode());
+	        	if (rank.indexOf(p)+1 <= 10) { System.out.printf("%s%s[#%d]%s\n", Color.bold.getCode(), Color.top10.getCode(), rank.indexOf(p)+1, Color.reset.getCode()); }
+	        	else { System.out.printf("[#%d]%s\n", rank.indexOf(p)+1, Color.reset.getCode()); }
 	        	Thread.sleep(10);
 	        	sortLB("hs");
-	        	System.out.printf("%sDings: %s%s%s %s[#%d]%s\n", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(hs), Color.reset.getCode(), rank.indexOf(p)+1, Color.reset.getCode());
+	        	System.out.printf("%sDings: %s%s%s%s ", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(hs), Color.reset.getCode());
+	        	if (rank.indexOf(p)+1 <= 10) { System.out.printf("%s%s[#%d]%s\n", Color.bold.getCode(), Color.top10.getCode(), rank.indexOf(p)+1, Color.reset.getCode()); }
+	        	else { System.out.printf("[#%d]%s\n", rank.indexOf(p)+1, Color.reset.getCode()); }
 	        	Thread.sleep(10);
 	        	sortLB("w");
-	        	System.out.printf("%sWins: %s%s%s %s[#%d]%s\n", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(w), Color.reset.getCode(), rank.indexOf(p)+1, Color.reset.getCode());
+	        	System.out.printf("%sWins: %s%s%s%s ", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(w), Color.reset.getCode());
+	        	if (rank.indexOf(p)+1 <= 10) { System.out.printf("%s%s[#%d]%s\n", Color.bold.getCode(), Color.top10.getCode(), rank.indexOf(p)+1, Color.reset.getCode()); }
+	        	else { System.out.printf("[#%d]%s\n", rank.indexOf(p)+1, Color.reset.getCode()); }
 	        	Thread.sleep(10);
 	        	sortLB("kw");
-	        	System.out.printf("%sK/Wr: %s%s%s %s[#%d]%s\n", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(kw), Color.reset.getCode(), rank.indexOf(p)+1, Color.reset.getCode());
+	        	System.out.printf("%sK/Wr: %s%s%s%s ", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(kw), Color.reset.getCode());
+	        	if (rank.indexOf(p)+1 <= 10) { System.out.printf("%s%s[#%d]%s\n", Color.bold.getCode(), Color.top10.getCode(), rank.indexOf(p)+1, Color.reset.getCode()); }
+	        	else { System.out.printf("[#%d]%s\n", rank.indexOf(p)+1, Color.reset.getCode()); }
 	        	Thread.sleep(10);
 	        	sortLB("hsp");
-	        	System.out.printf("%sOverall HS%%: %s%s%.3f%% %s[#%d]%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), ohs, Color.reset.getCode(), rank.indexOf(p)+1, Color.reset.getCode());
+	        	System.out.printf("%sOverall HS%%: %s%s%.3f%%%s ", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), ohs, Color.reset.getCode());
+	        	if (rank.indexOf(p)+1 <= 10) { System.out.printf("%s%s[#%d]%s", Color.bold.getCode(), Color.top10.getCode(), rank.indexOf(p)+1, Color.reset.getCode()); }
+	        	else { System.out.printf("[#%d]%s", rank.indexOf(p)+1, Color.reset.getCode()); }
 	        	Thread.sleep(10);
 	        	if (ohs>=lb.get(ignSens).hsp) System.out.printf(" %s%s+%.3f%s\n", Color.bold.getCode(), Color.poshs.getCode(), ohs-lb.get(ignSens).hsp, Color.reset.getCode());
 	        	else System.out.printf(" %s%s%.3f%s\n", Color.bold.getCode(), Color.neghs.getCode(), ohs-lb.get(ignSens).hsp, Color.reset.getCode());
@@ -157,11 +201,11 @@ public class BlockingBlip {
 	        	Thread.sleep(10);
 	        	System.out.printf("%sDings: %s%s%s\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(hs), Color.reset.getCode());
 	        	Thread.sleep(10);
-	        	System.out.printf("%sHS%%: %s%s%.3f%%\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), ohs, Color.reset.getCode());
+	        	System.out.printf("%sWins: %s%s%s\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(w), Color.reset.getCode());
 	        	Thread.sleep(10);
-	        	System.out.printf("%sWin: %s%s%s\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(w), Color.reset.getCode());
+	        	System.out.printf("%sK/Wr: %s%s%s\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(kw), Color.reset.getCode());
 	        	Thread.sleep(10);
-	        	System.out.printf("%sK/W: %s%s%s\n\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), (String)df.format(kw), Color.reset.getCode());
+	        	System.out.printf("%sHS%%: %s%s%.3f%%\n\n%s", Color.wordshex.getCode(), Color.reset.getCode(), Color.bold.getCode(), ohs, Color.reset.getCode());
 	        	Thread.sleep(10);
 	        }
         }
@@ -369,25 +413,40 @@ public class BlockingBlip {
 		}
 	}
 //maintenance
-	public static void extractLB() throws IOException {
+	@SuppressWarnings("deprecation")
+	public static void extractLB() throws Exception {
 		System.out.print("Updating...");
-		
-		System.setProperty("webdriver.chrome.driver", "C:\\Users\\blippy\\Documents\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe");
-		
+
+	    PrintStream originalErr = System.err;
+        System.setErr(new PrintStream(new NullOutputStream()));
+        
+		WebDriverManager.chromedriver().setup();
 		ChromeOptions options = new ChromeOptions();
 		options.addArguments("--headless");
-		WebDriver driver = new ChromeDriver(options);
-
-		driver.get("https://plancke.io/hypixel/leaderboards/player.arcade.blocking_dead");
-		
-		try { Thread.sleep(1500); }
-		catch (InterruptedException e) {
-			System.out.println("Failed to connect! Trying Again...");
+		WebDriver driver;
+	    try {
+			driver = new ChromeDriver(options);
+			driver.quit();
+	    }
+	    catch (Exception e) {
+			System.out.printf("Failed! Please make sure Google Chrome is up to date.\n");
+			System.exit(-1);
+	    }
+	    
+	    driver = new ChromeDriver(options);
+		try { 
 			driver.get("https://plancke.io/hypixel/leaderboards/player.arcade.blocking_dead");
-			try { Thread.sleep(3000); }
-			catch (InterruptedException ee) {
-				System.out.print("Failed!");
-				return;
+			Thread.sleep(1500); 
+			}
+		catch (Exception e) {
+			System.out.println("Failed to connect! Trying Again...");
+			try { 
+				driver.get("https://plancke.io/hypixel/leaderboards/player.arcade.blocking_dead");
+				Thread.sleep(3000); 
+				}
+			catch (Exception ee) {
+				System.out.printf("Failed! Please check your internet connection.\n");
+				System.exit(-1);
 			}
 		}
 		
@@ -396,19 +455,18 @@ public class BlockingBlip {
 		select.selectByValue("-1");
 		
 		try { Thread.sleep(750); }
-		catch (InterruptedException e) {
+		catch (Exception e) {
 			System.out.println("Failed to extract! Trying Again...");
 			select.selectByValue("-1");
 			try { Thread.sleep(1500); }
-			catch (InterruptedException ee) {
+			catch (Exception ee) {
 				System.out.print("Failed!");
-				return;
+				System.exit(-1);
 			}
 		}
 		
 		String html = driver.getPageSource();	
 		driver.quit();
-		
 		Document doc = Jsoup.parse(html);
 		Elements rows = doc.select("tbody tr");
         FileWriter writer = new FileWriter("LBdata.txt", false);
@@ -424,6 +482,8 @@ public class BlockingBlip {
 
         writer.close();
         populateLB();
+        
+        System.setErr(originalErr);
         System.out.println("Done!\n");
 	}
 	
@@ -451,18 +511,32 @@ public class BlockingBlip {
         
         while ((line = br.readLine()) != null) {
         	String[] sep = line.split(" ");
-        	defaultIGN = sep[0];
+        	defaultIGN = sep[0]; 
+        	
+        	try { colorSettings = (Integer.parseInt(sep[1]) > 0); }
+        	catch (Exception e) {};
         }
         br.close();
 	}
 	
 	public static void startup() throws Exception {
 		defaultIGN = "blippa";
+		colorSettings = false;
 		
 		lb = new HashMap<>();
 		rank = new ArrayList<>();	
 		reader = new Scanner(System.in);
 		df = new DecimalFormat("#,###");
+		
+		File file1 = new File("BBsettings.txt");
+		File file2 = new File("LBdata.txt");
+		
+		if (!file1.exists()) {
+			file1.createNewFile();
+		}
+		if (!file2.exists()) {
+			file2.createNewFile();
+		}
 		
 		loadSettings();
 		populateLB();
@@ -493,7 +567,9 @@ public class BlockingBlip {
 		Thread.sleep(10);
 		System.out.printf("- [D] Change default\n");
 		Thread.sleep(10);
-		System.out.printf("- [L] Leaderboard mode\n\n%s", Color.reset.getCode());
+		System.out.printf("- [L] Leaderboard mode\n");
+		Thread.sleep(10);
+		System.out.printf("- [S] Toggle colors\n\n%s", Color.reset.getCode());
 		Thread.sleep(10);
 	}
 	
